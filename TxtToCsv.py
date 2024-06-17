@@ -16,3 +16,6 @@ class TxtToCsv():
 
     def export(self, path):
         self.data.to_csv(path)
+
+    def close(self):
+        self.data = None
