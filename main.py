@@ -1,10 +1,11 @@
-from TxtToCsv import TxtToCsv
+from Parser import Parser
 
 def main():
-    converter = TxtToCsv('./logs_txt/')
+    converter = Parser('./logs_txt/')
     converter.process()
+    converter.to_xes('final.csv')
     
-    print(converter.data.head(5))
+    disocverer = Disocverer('final.csv')
 
 if __name__ == '__main__':
     main()
