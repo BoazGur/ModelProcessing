@@ -22,10 +22,10 @@ def main():
 
     process_model = parser.get_model()
 
-    csv_converter = CsvConverter()
-    csv_path = os.path.join(output_dir, "process_model.csv")
-    csv_converter.convert(csv_path, process_model)
-    print(f"CSV file exported to {csv_path}")
+    # csv_converter = CsvConverter()
+    # csv_path = os.path.join(output_dir, "process_model.csv")
+    # csv_converter.convert(csv_path, process_model)
+    # print(f"CSV file exported to {csv_path}")
 
     xes_converter = XesConverter()
     xes_path = os.path.join(output_dir, "process_model.xes")
