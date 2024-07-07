@@ -1,7 +1,7 @@
 from dataclasses import asdict
 import pandas as pd
 import pm4py
-from pm4py.objects.conversion.log import converter as log_converter
+from pm4py.objects.log.obj import EventLog
 
 
 from ProcessModel import ProcessModel
@@ -21,7 +21,7 @@ class CsvConverter(ConverterInterface):
 
 
 class XesConverter(ConverterInterface):
-    def convert(self, path, model: ProcessModel):
+    def convert(self, path, model: ProcessModel, max_trace_length=4):
         df = pd.DataFrame.from_records(
             [asdict(event) for event in model.events])
 
@@ -33,5 +33,8 @@ class XesConverter(ConverterInterface):
                                     activity_key='concept:name', timestamp_key='time:timestamp')
         event_log = pm4py.convert_to_event_log(df)
 
-        pm4py.write_xes(event_log, path)
+        filtered_log = pm4py.filter_case_size(event_log, 3, 4)
+
+
+        pm4py.write_xes(filtered_log, path)
         print(f"XES file exported to {path}")

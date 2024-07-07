@@ -51,7 +51,7 @@ class ProcessModelParser():
         timestamp_outcome = datetime.combine(date, time)
 
         if event_dict['ser_start'] == '00:00:00':
-            time = datetime.strptime('00:00:01', '%H:%M:%S').time()
+            time = datetime.strptime('23:59:59', '%H:%M:%S').time()
         else:
             time = datetime.strptime(event_dict['ser_start'], '%H:%M:%S').time()
 

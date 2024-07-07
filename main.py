@@ -9,7 +9,7 @@ def main():
     output_dir = "outputs/"
     os.makedirs(output_dir, exist_ok=True)
 
-    file_reader = FileReader(input_dir, portion=0.5)
+    file_reader = FileReader(input_dir, portion=1)
     parser = ProcessModelParser()
 
     for i, line in enumerate(file_reader.read_files_chunks()):
@@ -17,12 +17,12 @@ def main():
             parser.parse_headers(line)
         else:
             event_priority, event_type, event_outcome, event_server = parser.parse_line(line)
-            if event_priority and event_type and event_outcome and event_server:
+            if event_priority and event_type and event_outcome:
                 parser.add_event(event_priority)
                 parser.add_event(event_type)
                 parser.add_event(event_outcome)
             
-            # if event_server:
+            if event_server:
                 parser.add_event(event_server)
 
     process_model = parser.get_model()
@@ -39,6 +39,7 @@ def main():
 
     process_discovery = ProcessDiscovery()
     process_discovery.import_log(xes_path)
+    process_discovery.split_log(split_ratio = 0.5)
 
     algorithms = ['alpha', 'inductive', 'heuristics']
     for algo in algorithms:
