@@ -1,4 +1,6 @@
 import os
+from pm4py.algo.filtering.log.variants import variants_filter
+from pm4py.statistics.variants.log import get as variants_module
 from pm4py.objects.log.importer.xes import importer as xes_importer
 from pm4py.algo.discovery.alpha import algorithm as alpha_miner
 from pm4py.algo.discovery.inductive import algorithm as inductive_miner
@@ -12,7 +14,9 @@ from pm4py.algo.evaluation.replay_fitness import algorithm as replay_fitness
 from pm4py.algo.evaluation.precision import algorithm as precision_evaluator
 from pm4py.algo.evaluation.generalization import algorithm as generalization_evaluator
 from pm4py.algo.evaluation.simplicity import algorithm as simplicity_evaluator
+from pm4py.objects.conversion.process_tree import converter as pt_converter
 import matplotlib.pyplot as plt
+import networkx as nx
 
 class ProcessDiscovery:
     def __init__(self):
@@ -21,9 +25,16 @@ class ProcessDiscovery:
         self.initial_marking = None
         self.final_marking = None
 
-    def import_log(self, xes_file):
+    def import_log(self, xes_file, frequency=50):
         self.log = xes_importer.apply(xes_file)
+        
+        variants = variants_module.get_variants(self.log)
+        variants_count = {variant: len(traces) for variant, traces in variants.items()}
+        filtered_variants = {variant: count for variant, count in variants_count.items() if count >= frequency}
+        self.log = variants_filter.apply(self.log, filtered_variants)
+
         print(f"Log imported successfully from {xes_file}")
+        print(f"Number of variants after filtering: {len(filtered_variants)}")
 
     def discover_process(self, algorithm='alpha'):
         if self.log is None:
@@ -32,7 +43,8 @@ class ProcessDiscovery:
         if algorithm == 'alpha':
             self.net, self.initial_marking, self.final_marking = alpha_miner.apply(self.log)
         elif algorithm == 'inductive':
-            self.net, self.initial_marking, self.final_marking = inductive_miner.apply(self.log)
+            process_tree = inductive_miner.apply(self.log)
+            self.net, self.initial_marking, self.final_marking = pt_converter.apply(process_tree)
         elif algorithm == 'heuristics':
             self.net, self.initial_marking, self.final_marking = heuristics_miner.apply(self.log)
         else:
@@ -71,9 +83,39 @@ class ProcessDiscovery:
         if self.net is None:
             raise ValueError("Process model not discovered. Use discover_process() method first.")
 
+        # reach_graph = reachability_graph.construct_reachability_graph(self.net, self.initial_marking)
+        # gviz = graphs_visualizer.apply(reach_graph, parameters={ts_visualizer.Variants.VIEW_BASED.value.Parameters.FORMAT: "png"})
+        # graphs_visualizer.save(gviz, file_path)
+
+        # Construct the reachability graph
         reach_graph = reachability_graph.construct_reachability_graph(self.net, self.initial_marking)
-        gviz = graphs_visualizer.apply(reach_graph, parameters={graphs_visualizer.Variants.NETWORKX.value.Parameters.FORMAT: "png"})
-        graphs_visualizer.save(gviz, file_path)
+
+        # Create a NetworkX graph
+        G = nx.DiGraph()
+
+        # Add nodes and edges to the NetworkX graph
+        for state in reach_graph.states:
+            G.add_node(state.name)
+        
+        for transition in reach_graph.transitions:
+            G.add_edge(transition.from_state.name, transition.to_state.name, label=transition.name)
+
+        # Create a plot
+        plt.figure(figsize=(12, 8))
+        pos = nx.spring_layout(G)
+        nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=8, arrows=True)
+        
+        # Add edge labels
+        edge_labels = nx.get_edge_attributes(G, 'label')
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=6)
+
+        # Save the plot
+        plt.title("Reachability Graph")
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(file_path, format='png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
         print(f"Reachability graph visualization saved to {file_path}")
 
     def plot_transition_system(self, file_path="transition_system.png"):

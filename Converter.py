@@ -1,7 +1,8 @@
 from dataclasses import asdict
 import pandas as pd
 import pm4py
-from pm4py.objects.log.obj import EventLog, Trace, Event
+from pm4py.objects.conversion.log import converter as log_converter
+
 
 from ProcessModel import ProcessModel
 
@@ -21,23 +22,16 @@ class CsvConverter(ConverterInterface):
 
 class XesConverter(ConverterInterface):
     def convert(self, path, model: ProcessModel):
-        log = EventLog()
-        for event in model.events:
-            trace = Trace()
-            xes_event = Event()
-            xes_event["concept:name"] = event.activity
-            xes_event["time:timestamp"] = event.timestamp
-            xes_event["case:concept:name"] = event.call_id
-            xes_event["vru_line"] = event.vru_line
-            xes_event["customer_id"] = event.customer_id
-            xes_event["priority"] = event.priority
-            xes_event["type"] = event.type
-            xes_event["vru_time"] = event.vru_time
-            xes_event["q_time"] = event.q_time
-            xes_event["ser_time"] = event.ser_time
-            xes_event["server"] = event.server
-            trace.append(xes_event)
-            log.append(trace)
+        df = pd.DataFrame.from_records(
+            [asdict(event) for event in model.events])
 
-        pm4py.write_xes(log, path)
+        df.columns = ['case:concept:name', 'time:timestamp', 'concept:name']
+        df['time:timestamp'] = pd.to_datetime(df['time:timestamp'], yearfirst=True)
+        df['concept:name'] = df['concept:name'].astype(str)
+
+        df = pm4py.format_dataframe(df, case_id='case:concept:name',
+                                    activity_key='concept:name', timestamp_key='time:timestamp')
+        event_log = pm4py.convert_to_event_log(df)
+
+        pm4py.write_xes(event_log, path)
         print(f"XES file exported to {path}")

@@ -5,17 +5,9 @@ from datetime import datetime
 
 @dataclass
 class Event():
-    vru_line: str
-    call_id: str
-    customer_id: str
-    priority: int
-    type: str
+    case_id: str
     timestamp: datetime
-    vru_time: int
-    q_time: int
     activity: str
-    ser_time: int
-    server: str
 
 
 @dataclass
@@ -40,37 +32,71 @@ class ProcessModelParser():
         
         values = line.strip().split('\t')
         if len(values) != len(self.headers):
-            return None
+            return None, None, None, None
         
         if values == self.headers:
-            return None
+            return None, None, None, None
 
         event_dict = dict(zip(self.headers, values))
 
         date = datetime.strptime(event_dict['date'], '%y%m%d').date()
+
         time = datetime.strptime(event_dict['vru_entry'], '%H:%M:%S').time()
-        timestamp = datetime.combine(date, time)
+        timestamp_priority = datetime.combine(date, time)
 
-        if event_dict['outcome'] == 'AGENT':
-            activity = 'Call Handled'
-        elif event_dict['outcome'] == 'HANG':
-            activity = 'Call Abandoned'
-        elif event_dict['outcome'] == 'PHANTOM':
-            activity = 'Call Ignored'
+        time = datetime.strptime(event_dict['vru_entry'], '%H:%M:%S').time()
+        timestamp_type = datetime.combine(date, time)
 
-        return Event(
-            vru_line=event_dict['vru+line'],
-            call_id=event_dict['call_id'],
-            customer_id=event_dict['customer_id'],
-            priority=int(event_dict['priority']),
-            type=event_dict['type'],
-            timestamp=timestamp,
-            vru_time=int(event_dict['vru_time']),
-            q_time=int(event_dict['q_time']),
-            activity=activity,
-            ser_time=int(event_dict['ser_time']),
-            server=event_dict['server']
+        time = datetime.strptime(event_dict['vru_exit'], '%H:%M:%S').time()
+        timestamp_outcome = datetime.combine(date, time)
+
+        if event_dict['ser_start'] == '00:00:00':
+            time = datetime.strptime('00:00:01', '%H:%M:%S').time()
+        else:
+            time = datetime.strptime(event_dict['ser_start'], '%H:%M:%S').time()
+
+        timestamp_server = datetime.combine(date, time)
+
+        server_activity = 'SERVER' if event_dict['server'] != 'NO_SERVER' else 'NO_SERVER'
+
+        event_priority = Event(
+            case_id=event_dict['call_id'],
+            timestamp=timestamp_priority,
+            activity=event_dict['priority']
         )
+
+        event_type = Event(
+            case_id=event_dict['call_id'],
+            timestamp=timestamp_type,
+            activity=event_dict['type']
+        )
+
+        event_outcome = Event(
+            case_id=event_dict['call_id'],
+            timestamp=timestamp_outcome,
+            activity=event_dict['outcome']
+        )
+
+        event_server = Event(
+            case_id=event_dict['call_id'],
+            timestamp=timestamp_server,
+            activity=server_activity
+        )
+
+        if event_outcome.activity == 'HANG':
+            event_server = None
+        
+        time = datetime.strptime('00:00:00', '%H:%M:%S').time()
+        if timestamp_server == datetime.combine(date, time):
+            event_server = None
+
+        if (event_outcome is not None) and ((event_outcome.timestamp < event_priority.timestamp) or (event_outcome.timestamp < event_type.timestamp)):
+            return None, None, None, None
+
+        if (event_server is not None) and ((event_server.timestamp < event_priority.timestamp) or (event_server.timestamp < event_type.timestamp) or (event_server.timestamp < event_outcome.timestamp)):
+            return None, None, None, None
+
+        return event_priority, event_type, event_outcome, event_server
 
     def add_event(self, event):
         self.model.events.append(event)

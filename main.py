@@ -9,23 +9,28 @@ def main():
     output_dir = "outputs/"
     os.makedirs(output_dir, exist_ok=True)
 
-    file_reader = FileReader(input_dir)
+    file_reader = FileReader(input_dir, portion=0.5)
     parser = ProcessModelParser()
 
     for i, line in enumerate(file_reader.read_files_chunks()):
         if i == 0:
             parser.parse_headers(line)
         else:
-            event = parser.parse_line(line)
-            if event:
-                parser.add_event(event)
+            event_priority, event_type, event_outcome, event_server = parser.parse_line(line)
+            if event_priority and event_type and event_outcome and event_server:
+                parser.add_event(event_priority)
+                parser.add_event(event_type)
+                parser.add_event(event_outcome)
+            
+            # if event_server:
+                parser.add_event(event_server)
 
     process_model = parser.get_model()
 
-    # csv_converter = CsvConverter()
-    # csv_path = os.path.join(output_dir, "process_model.csv")
-    # csv_converter.convert(csv_path, process_model)
-    # print(f"CSV file exported to {csv_path}")
+    csv_converter = CsvConverter()
+    csv_path = os.path.join(output_dir, "process_model.csv")
+    csv_converter.convert(csv_path, process_model)
+    print(f"CSV file exported to {csv_path}")
 
     xes_converter = XesConverter()
     xes_path = os.path.join(output_dir, "process_model.xes")
